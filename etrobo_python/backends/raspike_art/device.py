@@ -264,24 +264,25 @@ class GyroSensor(etrobo_python.GyroSensor):
         self.log = bytearray(4)
         self.config = config
         self.initialized = False
+        self.offset = 0.0
     
     def __initialize(self) -> None:
         if self.config is None:
-            print(self.config) # debug
             err = lib.hub_imu_initialize_by_default()
         else:
-            print(self.config) # debug
             err = lib.hub_imu_initialize(self.config)
         if err == pbio_error.SUCCESS:
             self.initialized = True
 
     def reset(self) -> None:
-        pass
+        if not self.initialized:
+            self.__initialize()
+        self.offset = lib.hub_imu_get_heading()
 
     def get_angle(self) -> int:
         if not self.initialized:
             self.__initialize()
-        return round(lib.hub_imu_get_heading())
+        return round(lib.hub_imu_get_heading() - self.offset)
 
     def get_angular_velocity(self) -> int:
         if not self.initialized:
