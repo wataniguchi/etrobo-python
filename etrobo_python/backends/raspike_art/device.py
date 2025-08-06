@@ -1,14 +1,13 @@
 import time
-from typing import Any, List, Tuple
+from typing import Any, List, Tuple, Optional
 import warnings
 
 import etrobo_python
 
 import libraspike_art_python as lib
-from libraspike_art_python import pbio_port, pbio_color, hub_button, sound, pup_direction
+from libraspike_art_python import pbio_port, pbio_color, hub_button, sound, pup_direction, pbio_error
 
-
-def create_device(device_type: str, port: str) -> Any:
+def create_device(device_type: str, port: str, config: Optional[Tuple] = None) -> Any:
     if device_type == 'hub':
         return Hub()
     elif device_type == 'motor':
@@ -22,7 +21,7 @@ def create_device(device_type: str, port: str) -> Any:
     elif device_type == 'sonar_sensor':
         return SonarSensor(get_raspike_port(port))
     elif device_type == 'gyro_sensor':
-        return GyroSensor()
+        return GyroSensor(config=config)
     else:
         raise NotImplementedError(f'Unsupported device: {device_type}')
 
@@ -261,25 +260,45 @@ class SonarSensor(etrobo_python.SonarSensor):
 
 
 class GyroSensor(etrobo_python.GyroSensor):
-    def __init__(self) -> None:
+    def __init__(self, config) -> None:
         self.log = bytearray(4)
+        self.config = config
+        self.initialized = False
+    
+    def __initialize(self) -> None:
+        if self.config is None:
+            print(self.config) # debug
+            err = lib.hub_imu_initialize_by_default()
+        else:
+            print(self.config) # debug
+            err = lib.hub_imu_initialize(self.config)
+        if err == pbio_error.SUCCESS:
+            self.initialized = True
 
     def reset(self) -> None:
         pass
 
     def get_angle(self) -> int:
-        return 0
+        if not self.initialized:
+            self.__initialize()
+        return round(lib.hub_imu_get_heading())
 
     def get_angular_velocity(self) -> int:
+        if not self.initialized:
+            self.__initialize()
         return round(lib.hub_imu_get_angular_velocity()[1])
 
     def get_angler_velocity(self) -> int:
         warnings.warn(
             'get_angler_velocity is deprecated, use get_angular_velocity instead.',
             DeprecationWarning)
+        if not self.initialized:
+            self.__initialize()
         return self.get_angular_velocity()
 
     def get_log(self) -> bytes:
+        if not self.initialized:
+            self.__initialize()
         self.log[:2] = int.to_bytes(self.get_angle(), 2, 'big', signed=True)
-        self.log[2:] = int.to_bytes(self.get_angler_velocity(), 2, 'big', signed=True)
+        self.log[2:] = int.to_bytes(self.get_anguler_velocity(), 2, 'big', signed=True)
         return self.log

@@ -97,6 +97,7 @@ class ETRobo:
         name: str,
         device_type: Union[str, Type[Device]],
         port: str,
+        config: Optional[Tuple] = None,
     ) -> 'ETRobo':
         '''制御対象となるデバイスを登録する。
         ここで登録されたデバイスオブジェクトは制御ハンドラに引数として渡される。
@@ -114,6 +115,7 @@ class ETRobo:
             name: 制御オブジェクトの名前（handlerに渡される引数名）。
             device_type: 制御デバイスの種類
             port: 制御デバイスを接続しているポート
+            config: ジャイロセンサ校正によって得た定数。backend=raspike_artに対して指定可能
 
         Returns:
             このオブジェクト
@@ -122,7 +124,7 @@ class ETRobo:
             device_type = device_type.__name__
 
         device_type = _pascal2snake(device_type)
-        device = self.backend.create_device(device_type, str(port))
+        device = self.backend.create_device(device_type, str(port), config=config)
         self.devices.append((name, device))
         return self
 

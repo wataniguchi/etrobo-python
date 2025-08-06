@@ -27,7 +27,8 @@ def print_obtained_values_in_realworld(
         'TouchSensor: pressed={}'.format(touch_sensor.is_pressed()),
         'ColorSensor: raw_color={}'.format(color_sensor.get_raw_color()),
         'SonarSensor: distance={}'.format(sonar_sensor.get_distance()),
-        'GyroSensor: angular_velocity={}'.format(gyro_sensor.get_angler_velocity())
+        'GyroSensor: angular_velocity={}'.format(gyro_sensor.get_angler_velocity()),
+        'GyroSensor: angle={}'.format(gyro_sensor.get_angle())
     ]
 
     right_motor.set_brake(True)
@@ -43,7 +44,10 @@ def run(backend: str, **kwargs: Any) -> None:
      .add_device(name='touch_sensor', device_type=TouchSensor, port='D')
      .add_device(name='color_sensor', device_type=ColorSensor, port='E')
      .add_device(name='sonar_sensor', device_type=SonarSensor, port='F')
-     .add_device(name='gyro_sensor', device_type=GyroSensor, port='')
+     .add_device(name='gyro_sensor', device_type=GyroSensor, port='',
+        config=[2.0, 2500.0,
+        [-1.61239, -1.485107, -0.2945677], [360.4545, 356.9208, 363.781],
+        [10016.18, -9657.935, 9823.967, -9957.187, 9766.231, -9970.058]])
      .add_handler(print_obtained_values_in_realworld)
      .dispatch(**kwargs))
 
