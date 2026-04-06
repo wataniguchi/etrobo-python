@@ -1,5 +1,5 @@
 import time
-from typing import Any, List, Tuple, Optional
+from typing import Any, List, Tuple
 import warnings
 
 import etrobo_python
@@ -7,7 +7,7 @@ import etrobo_python
 import libraspike_art_python as lib
 from libraspike_art_python import pbio_port, pbio_color, hub_button, sound, pup_direction, pbio_error
 
-def create_device(device_type: str, port: str, config: Optional[Tuple] = None) -> Any:
+def create_device(device_type: str, port: str) -> Any:
     if device_type == 'hub':
         return Hub()
     elif device_type == 'motor':
@@ -21,7 +21,7 @@ def create_device(device_type: str, port: str, config: Optional[Tuple] = None) -
     elif device_type == 'sonar_sensor':
         return SonarSensor(get_raspike_port(port))
     elif device_type == 'gyro_sensor':
-        return GyroSensor(config=config)
+        return GyroSensor()
     else:
         raise NotImplementedError(f'Unsupported device: {device_type}')
 
@@ -87,12 +87,42 @@ class Hub(etrobo_python.Hub):
 
     def is_down_button_pressed(self) -> bool:
         return lib.hub_button_is_pressed(hub_button.CENTER)
-
-    def get_acceleration(self) -> Tuple[float, float, float]:
+    
+    def hub_imu_init(self) -> pbio_error:
+        return lib.hub_imu_init()
+    
+    def hub_imu_is_ready(self) -> bool:
+        return lib.hub_imu_is_ready()
+    
+    def hub_imu_is_stationary(self) -> bool:
+        return lib.hub_imu_is_stationary()
+    
+    def hub_imu_set_tilt(self, angle: float) -> None:
+        lib.hub_imu_set_tilt(angle)
+    
+    def hub_imu_get_acceleration(self) -> Tuple[float, float, float]:
         return lib.hub_imu_get_acceleration()
 
-    def get_angular_velocity(self) -> Tuple[float, float, float]:
+    def get_acceleration(self) -> Tuple[float, float, float]:
+        warnings.warn(
+            'get_acceleration is deprecated, use hub_imu_get_acceleration instead.',
+            DeprecationWarning)
+        return lib.hub_imu_get_acceleration()
+
+    def hub_imu_get_angular_velocity(self) -> Tuple[float, float, float]:
         return lib.hub_imu_get_angular_velocity()
+    
+    def get_angular_velocity(self) -> Tuple[float, float, float]:
+        warnings.warn(
+            'get_angular_velocity is deprecated, use hub_imu_get_angular_velocity instead.',
+            DeprecationWarning)
+        return lib.hub_imu_get_angular_velocity()
+    
+    def hub_imu_get_heading(self) -> float:
+        return lib.hub_imu_get_heading()
+    
+    def hub_imu_reset_heading(self) -> None:
+        lib.hub_imu_reset_heading()
 
     def get_log(self) -> bytes:
         self.log[:4] = int.to_bytes(int(self.get_time() * 1000), 4, 'big')
@@ -260,29 +290,30 @@ class SonarSensor(etrobo_python.SonarSensor):
 
 
 class GyroSensor(etrobo_python.GyroSensor):
-    def __init__(self, config) -> None:
+    def __init__(self) -> None:
         self.log = bytearray(4)
-        self.config = config
         self.initialized = False
-        self.offset = 0.0
     
     def __initialize(self) -> None:
-        if self.config is None:
-            err = lib.hub_imu_initialize_by_default()
-        else:
-            err = lib.hub_imu_initialize(self.config)
-        if err == pbio_error.SUCCESS:
-            self.initialized = True
+        lib.hub_imu_init()
+        # HackSPi's hub is tilted at ~51 degrees.
+        lib.hub_imu_set_tilt(51.0)
+        # Wait for IMU to become ready
+        while not lib.hub_imu_is_ready():
+            print(".", end="")
+            time.sleep(0.1)
+        print("IMU is ready.")
+        self.initialized = True
 
     def reset(self) -> None:
         if not self.initialized:
             self.__initialize()
-        self.offset = lib.hub_imu_get_heading()
+        lib.hub_imu_reset_heading()
 
     def get_angle(self) -> int:
         if not self.initialized:
             self.__initialize()
-        return round(lib.hub_imu_get_heading() - self.offset)
+        return round(lib.hub_imu_get_heading())
 
     def get_angular_velocity(self) -> int:
         if not self.initialized:
@@ -301,5 +332,5 @@ class GyroSensor(etrobo_python.GyroSensor):
         if not self.initialized:
             self.__initialize()
         self.log[:2] = int.to_bytes(self.get_angle(), 2, 'big', signed=True)
-        self.log[2:] = int.to_bytes(self.get_anguler_velocity(), 2, 'big', signed=True)
+        self.log[2:] = int.to_bytes(self.get_angular_velocity(), 2, 'big', signed=True)
         return self.log
